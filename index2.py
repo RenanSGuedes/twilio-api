@@ -39,16 +39,14 @@ def get_messages(start_date, end_date):
 st.title("Mensagens do WhatsApp - Twilio")
 
 # Configurações da Twilio
-col1, col2, col3 = st.columns(3)
+col1, col2 = st.columns(2)
 with col1:
     account_sid = st.text_input("Account SID")
 with col2:
     auth_token = st.text_input("Auth Token", type="password")
-with col3:
-    twilio_whatsapp_number = st.text_input("Número do WhatsApp da Twilio")
 
 # Verifica se as credenciais foram fornecidas
-if account_sid and auth_token and twilio_whatsapp_number:
+if account_sid and auth_token:
     client = Client(account_sid, auth_token)
 
     # Filtros
@@ -78,88 +76,91 @@ if account_sid and auth_token and twilio_whatsapp_number:
     reload_data = st.button("Recarregar Dados")
 
     # Obtém mensagens apenas se o botão for clicado
-    if reload_data:
-        with st.spinner("Obtendo mensagens..."):
-            messages_df = get_messages(start_date, end_date)
+    try:
+        if reload_data:
+            with st.spinner("Obtendo mensagens..."):
+                messages_df = get_messages(start_date, end_date)
 
-        st.session_state.messages_df = messages_df
+            st.session_state.messages_df = messages_df
 
-    elif 'messages_df' not in st.session_state:
-        st.warning("Por favor, clique em 'Recarregar Dados' para obter as mensagens.")
+        elif 'messages_df' not in st.session_state:
+            st.warning("Por favor, clique em 'Recarregar Dados' para obter as mensagens.")
 
-    # Exibição das mensagens se os dados estiverem disponíveis
-    if 'messages_df' in st.session_state:
-        messages_df = st.session_state.messages_df
-        
-        # Filtro por número de telefone (coluna "Para")
-        st.subheader("Filtrar por Número de Telefone")
-        unique_recipients = messages_df['Para'].unique()
-        select_all = st.checkbox("Selecionar todos os usuários")
-
-        if select_all:
-            selected_recipients = unique_recipients.tolist()  # Converte para lista para garantir compatibilidade
-        else:
-            selected_recipients = st.multiselect('Escolha até 10 usuários', unique_recipients, max_selections=10)
-
-        if len(selected_recipients) > 0:  # Verificação correta
-            messages_df = messages_df[messages_df['Para'].isin(selected_recipients)]
-        
-        # Filtro por direção
-        st.subheader("Filtrar por Direção")
-        unique_directions = messages_df['Direção'].unique()
-        selected_directions = st.multiselect('Escolha as direções das mensagens', unique_directions, default=unique_directions)
-        
-        if selected_directions:
-            messages_df = messages_df[messages_df['Direção'].isin(selected_directions)]
-
-        # Métrica de número de usuários diferentes
-        num_unique_users = messages_df['Para'].nunique()
-        st.metric(label="Número de Usuários Diferentes", value=num_unique_users)
-
-        # Exibição da tabela de dados
-        st.subheader("Tabela de Mensagens")
-        st.dataframe(messages_df[[
-            "Para",
-            "Mensagem",
-            "Data",
-            "Status",
-            "Direção"
-        ]], 
-            use_container_width=True,
-            hide_index=True
-        )
-    
-        # Gerando CSV
-        csv = messages_df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="Baixar CSV",
-            data=csv,
-            file_name='mensagens_whatsapp.csv',
-            mime='text/csv'
-        )
-        
-        # Dividindo a visualização em 3 colunas
-        col1, col2 = st.columns(2)
+        # Exibição das mensagens se os dados estiverem disponíveis
+        if 'messages_df' in st.session_state:
+            messages_df = st.session_state.messages_df
             
-        with col1:
-            # Gráfico de status das mensagens
-            st.subheader("Status das Mensagens")
-            status_counts = messages_df['Status'].value_counts().reset_index()
-            status_counts.columns = ['Status', 'Count']
-            fig_status_bar = px.bar(status_counts, x='Status', y='Count', title='Status das Mensagens')
-            st.plotly_chart(fig_status_bar, use_container_width=True)
+            # Filtro por número de telefone (coluna "Para")
+            st.subheader("Filtrar por Número de Telefone")
+            unique_recipients = messages_df['Para'].unique()
+            select_all = st.checkbox("Selecionar todos os usuários")
 
-        with col2:
-            # Gráfico de pizza dos status das mensagens
-            st.subheader("Distribuição dos Status")
-            fig_status_pie = px.pie(status_counts, values='Count', names='Status', title='Distribuição dos Status das Mensagens')
-            st.plotly_chart(fig_status_pie, use_container_width=True)
+            if select_all:
+                selected_recipients = unique_recipients.tolist()  # Converte para lista para garantir compatibilidade
+            else:
+                selected_recipients = st.multiselect('Escolha até 10 usuários', unique_recipients, max_selections=10)
+
+            if len(selected_recipients) > 0:  # Verificação correta
+                messages_df = messages_df[messages_df['Para'].isin(selected_recipients)]
+            
+            # Filtro por direção
+            st.subheader("Filtrar por Direção")
+            unique_directions = messages_df['Direção'].unique()
+            selected_directions = st.multiselect('Escolha as direções das mensagens', unique_directions, default=unique_directions)
+            
+            if selected_directions:
+                messages_df = messages_df[messages_df['Direção'].isin(selected_directions)]
+
+            # Métrica de número de usuários diferentes
+            num_unique_users = messages_df['Para'].nunique()
+            st.metric(label="Número de Usuários Diferentes", value=num_unique_users)
+
+            # Exibição da tabela de dados
+            st.subheader("Tabela de Mensagens")
+            st.dataframe(messages_df[[
+                "Para",
+                "Mensagem",
+                "Data",
+                "Status",
+                "Direção"
+            ]], 
+                use_container_width=True,
+                hide_index=True
+            )
         
-        # Tabela com status por usuários
-        st.subheader("Status por Usuário")
-        user_status_counts = messages_df.groupby(['Para', 'Status']).size().unstack(fill_value=0).reset_index()
-        
-        st.dataframe(user_status_counts, use_container_width=True, hide_index=True)
+            # Gerando CSV
+            csv = messages_df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="Baixar CSV",
+                data=csv,
+                file_name='mensagens_whatsapp.csv',
+                mime='text/csv'
+            )
+            
+            # Dividindo a visualização em 3 colunas
+            col1, col2 = st.columns(2)
+                
+            with col1:
+                # Gráfico de status das mensagens
+                st.subheader("Status das Mensagens")
+                status_counts = messages_df['Status'].value_counts().reset_index()
+                status_counts.columns = ['Status', 'Count']
+                fig_status_bar = px.bar(status_counts, x='Status', y='Count', title='Status das Mensagens')
+                st.plotly_chart(fig_status_bar, use_container_width=True)
+
+            with col2:
+                # Gráfico de pizza dos status das mensagens
+                st.subheader("Distribuição dos Status")
+                fig_status_pie = px.pie(status_counts, values='Count', names='Status', title='Distribuição dos Status das Mensagens')
+                st.plotly_chart(fig_status_pie, use_container_width=True)
+            
+            # Tabela com status por usuários
+            st.subheader("Status por Usuário")
+            user_status_counts = messages_df.groupby(['Para', 'Status']).size().unstack(fill_value=0).reset_index()
+            
+            st.dataframe(user_status_counts, use_container_width=True, hide_index=True)
+    except:
+        st.error(":x: Credenciais incorretas")
 
 else:
     st.warning("Por favor, forneça as credenciais do Twilio e o número de telefone.")
