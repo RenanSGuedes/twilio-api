@@ -117,19 +117,11 @@ if account_sid and auth_token:
 
             # Exibição da tabela de dados
             st.subheader("Tabela de Mensagens")
-            st.dataframe(messages_df[[
-                "Para",
-                "Mensagem",
-                "Data",
-                "Status",
-                "Direção"
-            ]], 
-                use_container_width=True,
-                hide_index=True
-            )
+            displayed_columns = ["Para", "Mensagem", "Data", "Status", "Direção"]
+            st.dataframe(messages_df[displayed_columns], use_container_width=True, hide_index=True)
         
             # Gerando CSV
-            csv = messages_df.to_csv(index=False).encode('utf-8')
+            csv = messages_df[displayed_columns].to_csv(index=False).encode('utf-8')
             st.download_button(
                 label="Baixar CSV",
                 data=csv,
@@ -157,10 +149,19 @@ if account_sid and auth_token:
             # Tabela com status por usuários
             st.subheader("Status por Usuário")
             user_status_counts = messages_df.groupby(['Para', 'Status']).size().unstack(fill_value=0).reset_index()
-            
             st.dataframe(user_status_counts, use_container_width=True, hide_index=True)
-    except:
-        st.error(":x: Credenciais incorretas")
+            
+            # Gráfico de barras com os usuários com maior número de acessos
+            st.subheader("Usuários com Maior Número de Acessos")
+            user_access_counts = messages_df['Para'].value_counts().reset_index()
+            user_access_counts.columns = ['Para', 'Count']
+            top_users = user_access_counts.head(10)
+            fig_top_users_bar = px.bar(top_users, x='Para', y='Count', title='Top 10 Usuários com Maior Número de Acessos', 
+                                       color='Count', color_continuous_scale='Viridis')
+            st.plotly_chart(fig_top_users_bar, use_container_width=True)
+
+    except Exception as e:
+        st.error(f":x: Ocorreu um erro: {e}")
 
 else:
     st.warning("Por favor, forneça as credenciais do Twilio e o número de telefone.")
